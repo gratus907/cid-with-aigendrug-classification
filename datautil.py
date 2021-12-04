@@ -1,9 +1,10 @@
 import torch
 from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
+import numpy as np
 from torchvision.transforms import transforms
 
-bayesian_weight = torch.tensor([ 6.1005,  5.8649,  4.6503,  3.7304,  1.0000,  1.0000, 10.0000,  1.0000,
+bayesian_weight = np.array([ 6.1005,  5.8649,  4.6503,  3.7304,  1.0000,  1.0000, 10.0000,  1.0000,
                            1.0000,  6.0396,  6.3256,  6.3953,  6.0634,  2.9373,  5.9343,  8.1757,
                            4.8810,  1.0000,  5.8496,  5.9429,  5.1362,  1.0000,  1.0000, 15.8496,
                            15.3051,  3.2193, 10.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,
@@ -149,25 +150,37 @@ def read_files():
     return list(chemical_dict.values())
 
 class ChemicalDILIDataset(Dataset):
-    def __init__(self, chem):
+    def __init__(self, chem, use_torch_tensor = False, weight=True):
         self.chemicals = chem
+        self.use_torch_tensor = use_torch_tensor
+        self.weight = weight
 
     def __len__(self):
         return len(self.chemicals)
 
     def __getitem__(self, idx):
-        fp = torch.Tensor(self.chemicals[idx].fp) * (bayesian_weight)
-        fp = (fp - fp.mean()) / fp.std()
-        tox = torch.Tensor([self.chemicals[idx].toxicity]).long()
+        if self.weight:
+            fp = np.array(self.chemicals[idx].fp) * (bayesian_weight)
+            fp = (fp - fp.min()) / (fp.max() - fp.min())
+        else: fp = np.array(self.chemicals[idx].fp)
+        tox = np.array([self.chemicals[idx].toxicity])
+        if self.use_torch_tensor:
+            fp = torch.Tensor(fp)
+            tox = torch.Tensor(tox)
         return fp, tox
 
-chemicals = read_files()
-chem_train, chem_test = train_test_split(chemicals, test_size=0.2, random_state=0)
-train_set = ChemicalDILIDataset(chem_train)
-test_set = ChemicalDILIDataset(chem_test)
-NUM_FEATURES = 881
-
 def load_DILI_data():
-    train_loader = DataLoader(train_set, batch_size=10)
+    chemicals = read_files()
+    chem_train, chem_test = train_test_split(chemicals, test_size=0.2)
+    train_set = ChemicalDILIDataset(chem_train, True)
+    test_set = ChemicalDILIDataset(chem_test, True)
+    train_loader = DataLoader(train_set, batch_size=1)
     test_loader = DataLoader(test_set)
     return train_loader, test_loader
+
+def read_data_as_np(weight = True):
+    chemicals = read_files()
+    chem_train, chem_test = train_test_split(chemicals, test_size=0.2)
+    train_set = ChemicalDILIDataset(chem_train, use_torch_tensor=False, weight=weight)
+    test_set = ChemicalDILIDataset(chem_test, use_torch_tensor=False, weight=weight)
+    return train_set, test_set

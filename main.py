@@ -92,9 +92,6 @@ def train(
                 print(f"saved model to {save_path}")
             print(f"Validation epoch {epoch+1} / {epochs}",
                   f"Loss {valid_loss:.4f}, Accuracy {valid_accr:.2f}%")
-        for name, param in model.named_parameters():
-            if param.requires_grad and name == "layer.0.weight":
-                print (name, param.data, param.grad)
         print()
     print(f"Total training time {(time.time()-start)/60:.2f} minutes taken")
     if plot:
@@ -114,14 +111,14 @@ def main():
     train_loader, test_loader = load_DILI_data()
     model = MLP(in_ch = 881)
     model.to(device)
-    #summary(model, (1, 881))
-    optimizer = optim.SGD(model.parameters(), lr=0.5)
+    summary(model, (1, 881))
+    optimizer = optim.SGD(model.parameters(), lr=0.1)
     train(
-        model=model, epochs=5,
+        model=model, epochs=50,
         train_loader=train_loader,
         validation_loader=test_loader,
         optimizer=optimizer,
-        loss_func=nn.BCELoss(),
+        loss_func=nn.MSELoss(),
         scheduler=None,
         save_path=None,
         plot=True

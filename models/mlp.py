@@ -5,16 +5,15 @@ class MLP(nn.Module):
     def __init__(self, in_ch):
         super().__init__()
         self.layer = nn.Sequential(
-            nn.Linear(in_ch, 100),
-            nn.ReLU(),
-            nn.BatchNorm1d(num_features=100),
-            nn.Linear(100, 10),
-            nn.ReLU(),
-            nn.BatchNorm1d(num_features=10),
-            nn.Linear(10, 1)
+            nn.Linear(in_ch, 881),
+            nn.Tanh(),
+            nn.Linear(881, 440),
+            nn.Tanh(),
+            nn.Linear(440, 110),
+            nn.Tanh(),
+            nn.Linear(110, 1)
         )
 
     def forward(self, x):
         x = self.layer(x)
-        print(x / 20)
         return torch.sigmoid(x)
