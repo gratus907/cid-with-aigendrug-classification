@@ -1,19 +1,26 @@
 import torch
 import torch.nn as nn
 
-class MLP(nn.Module):
-    def __init__(self, in_ch):
+class Weight(nn.Module):
+    def __init__(self):
         super().__init__()
+        self.weight = nn.Parameter(data = torch.Tensor(2621), requires_grad=True)
+        self.weight.data.uniform_(1, 1)
+
+    def forward(self, x):
+        return torch.mul(x, self.weight)
+
+class MLP(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.weight = Weight()
         self.layer = nn.Sequential(
-            nn.Linear(in_ch, 881),
+            nn.Linear(2621, 100),
             nn.Tanh(),
-            nn.Linear(881, 440),
-            nn.Tanh(),
-            nn.Linear(440, 110),
-            nn.Tanh(),
-            nn.Linear(110, 1)
+            nn.Linear(100, 1)
         )
 
     def forward(self, x):
+        x = self.weight(x)
         x = self.layer(x)
         return torch.sigmoid(x)

@@ -74,7 +74,8 @@ def train(
                     fp = fp.to(device)
                     label = label.float().to(device)
                     output = model(fp)
-                    valid_loss += loss_func(output, label).item()
+                    loss_item = loss_func(output, label).item()
+                    valid_loss += loss_item
                     pred = output.round()
                     valid_correct += pred.eq(label.view_as(pred)).sum().item()
                     valid_total += label.size(0)
@@ -107,20 +108,31 @@ def train(
 def svm_loss(output, y):
     return torch.mean(torch.clamp(1 - y * output, min=0))
 
+def bce_loss(output, y):
+    return torch.clamp(-(y * torch.log(output) + (1 - y) * torch.log(1 - output)), min=-100, max=100)
+
+def highloss(output, y):
+    return torch.abs(y - output)
+
 def main():
     train_loader, test_loader = load_DILI_data()
-    model = MLP(in_ch = 881)
+    model = MLP()
     model.to(device)
-    summary(model, (1, 881))
-    optimizer = optim.SGD(model.parameters(), lr=0.1)
+    summary(model, (1, 2621))
+    optimizer = optim.SGD([
+        {"params": model.layer.parameters(), "lr": 0.1},
+        {"params": model.weight.parameters(), "lr" : 0.3},
+    ], lr=0.2)
     train(
-        model=model, epochs=50,
+        model=model, epochs=100,
         train_loader=train_loader,
         validation_loader=test_loader,
         optimizer=optimizer,
         loss_func=nn.MSELoss(),
         scheduler=None,
-        save_path=None,
+        save_path="./best_model",
         plot=True
     )
+    print(model.weight.weight.data)
+
 main()
