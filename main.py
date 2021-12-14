@@ -106,7 +106,7 @@ def train(
         plt.show()
 
 def svm_loss(output, y):
-    return torch.mean(torch.clamp(1 - y * output, min=0))
+    return torch.clamp(1 - y * output, min=0)
 
 def bce_loss(output, y):
     return torch.clamp(-(y * torch.log(output) + (1 - y) * torch.log(1 - output)), min=-100, max=100)
@@ -118,11 +118,8 @@ def main():
     train_loader, test_loader = load_DILI_data()
     model = MLP()
     model.to(device)
-    summary(model, (1, 2621))
-    optimizer = optim.SGD([
-        {"params": model.layer.parameters(), "lr": 0.1},
-        {"params": model.weight.parameters(), "lr" : 0.3},
-    ], lr=0.2)
+    summary(model, (1, 3501))
+    optimizer = optim.SGD(model.parameters(), lr=0.03)
     train(
         model=model, epochs=100,
         train_loader=train_loader,
