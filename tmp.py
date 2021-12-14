@@ -18,77 +18,57 @@ def parse_input(filename):
         smiles.append(smile)
     return smiles
 
-def read_smiles(smiles_path):
-    smiles = parse_input(smiles_path)
-    mols = dict()
-    for smile in smiles:
-        try:
-            mol = Chem.MolFromSmiles(smile, sanitize=False)
-            mols[smile] = mol
-        except AttributeError as e:
-            pass
-    return smiles, mols
-
 class Chemical:
     def __init__(self, name, smiles, fp, toxicity):
         self.name = name
         self.smiles = smiles
         self.fp = fp
         self.toxicity = toxicity
-        self.mol = Chem.MolFromSmiles(self.smiles, sanitize=False)
 
     def __str__(self):
         return f"CHEMICAL {self.name} {self.smiles} : {self.toxicity} {self.fp}"
 
-def read_files():
-    fingerprint_file = open("./data/fingerprint.csv").readlines()
+def read_files(rewrite_fp = False):
+    if rewrite_fp:
+        fingerprint_file = open("./data/tingli_fingerprint.csv").readlines()
+    else:
+        fingerprint_file = open("./data/tingli_full_fingerprint.csv").readlines()
     chemical_dict = dict()
     for line in fingerprint_file:
         content = line.split(',')
-        chem_name = content[0].replace('"','')
+        chem_name = content[0].replace('"','').replace('AUTOGEN_', '')
         fp = [int(x) for x in list("".join(content[1:]).strip())]
         chemical_dict[chem_name] = Chemical(chem_name, "", fp, "")
 
-    chemical_info = open("./data/smiles").readlines()
+    train_test = open(f"./data/train_idx.csv").readlines()
+    train_chem_names = set([line.split(',')[0] for line in train_test])
+
+    chemical_info = open("./data/tingli-smiles").readlines()
     for line in chemical_info:
         content = line.split(',')
         chem_name = content[0].replace('"','')
         smiles = content[1]
-        toxicity = int(content[2].strip())
+        toxicity = int(content[2])
         chemical_dict[chem_name].smiles = smiles
         chemical_dict[chem_name].toxicity = toxicity
 
-    query_smiles, query_mols = read_smiles("./data/query_smiles")
-    full_fp = open("./data/full_fingerprint.csv", 'w')
-    count_match = 0
-    itr = 0; total_chems = len(chemical_dict.values())
-    for chemical in chemical_dict.values():
-        print(chemical.mol)
-        for query_smile in query_smiles:
-            count_match += int(chemical.mol.HasSubstructMatch(query_mols[query_smile]))
-            chemical.fp.append(int(chemical.mol.HasSubstructMatch(query_mols[query_smile])))
-        #full_fp.write(f'"{chemical.name}",{"".join([str(elem) for elem in chemical.fp])}\n')
-        print(f"{itr}/{total_chems} processed, found {count_match}"); itr+=1
+    if rewrite_fp:
+        query_smiles = parse_input("./data/query_smiles")
+        full_fp = open("./data/tingli_full_fingerprint.csv", 'w')
+        count_match = 0
+        itr = 1; total_chems = len(chemical_dict.values())
+        for chemical in chemical_dict.values():
+            m = Chem.MolFromSmiles(chemical.smiles, sanitize=False)
+            for query_smile in query_smiles:
+                query_mol = Chem.MolFromSmiles(query_smile, sanitize=False)
+                b = 1 if m.HasSubstructMatch(query_mol) else 0
+                count_match += b
+                chemical.fp.append(b)
+            train_or_test = 'train' if chemical.name in train_chem_names else 'test'
+            full_fp.write(f'"{chemical.name}",{train_or_test},{chemical.toxicity},{",".join([str(elem) for elem in chemical.fp])}\n')
+            print(f"{itr}/{total_chems} processed, found {count_match}"); itr+=1
     return list(chemical_dict.values())
 
-query_smiles, query_mols = read_smiles("./data/query_smiles")
-count_match = 0
-f = open("./data/aigendrug_dili").readlines()
-chemical_dict = dict()
-idx = 0
-for line in f:
-    content = line.split('	')[1:]
-    chem_name = f"Aigen_{idx}"; idx += 1
-    smiles = content[0].replace('"', '')
-    toxicity = int(float(content[1].strip()))
-    fp = []
-    chem = Chem.MolFromSmiles(smiles, sanitize=False)
-    for q in query_smiles:
-        b = chem.HasSubstructMatch(Chem.MolFromSmiles(q, sanitize=False))
-        b = int(b)
-        count_match += b
-        fp.append(b)
-    chemical_dict[chem_name] = Chemical(name=chem_name, smiles=smiles, fp=fp, toxicity=toxicity)
-    chemical_dict[chem_name].smiles = smiles
-    chemical_dict[chem_name].toxicity = toxicity
-print(chemical_dict)
+
+#print(train_chem_names)
+read_files(True)

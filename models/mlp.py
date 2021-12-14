@@ -453,9 +453,7 @@ class MLP(nn.Module):
     def __init__(self):
         super().__init__()
         self.layer = nn.Sequential(
-            nn.Linear(NUM_FEATURES, 1500),
-            nn.Tanh(),
-            nn.Linear(1500, 500), 
+            nn.Linear(NUM_FEATURES, 500),
             nn.Tanh(),
             nn.Linear(500, 100),
             nn.Tanh(),

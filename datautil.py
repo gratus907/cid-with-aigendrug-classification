@@ -529,44 +529,28 @@ class Chemical:
         self.smiles = smiles
         self.fp = fp
         self.toxicity = toxicity
+        self.is_train = False 
 
     def __str__(self):
         return f"CHEMICAL {self.name} {self.smiles} : {self.toxicity} {self.fp}"
 
 def read_files(rewrite_fp = False):
-    if rewrite_fp:
-        fingerprint_file = open("./data/fingerprint.csv").readlines()
-    else:
-        fingerprint_file = open("./data/full_fingerprint.csv").readlines()
+    fingerprint_file = open("./data/tingli_full_fingerprint.csv").readlines()
     chemical_dict = dict()
     for line in fingerprint_file:
         content = line.split(',')
         chem_name = content[0].replace('"','')
-        fp = [int(x) for x in list("".join(content[1:]).strip())]
-        chemical_dict[chem_name] = Chemical(chem_name, "", fp, "")
+        toxicity = int(content[2])
+        fp = [int(x) for x in list("".join(content[3:]).strip())]
+        chemical_dict[chem_name] = Chemical(chem_name, "", fp, toxicity)
+        chemical_dict[chem_name].is_train = (content[1] == 'train')
 
-    chemical_info = open("./data/smiles").readlines()
+    chemical_info = open("./data/tingli-smiles").readlines()
     for line in chemical_info:
         content = line.split(',')
         chem_name = content[0].replace('"','')
         smiles = content[1]
-        toxicity = int(content[2].strip())
         chemical_dict[chem_name].smiles = smiles
-        chemical_dict[chem_name].toxicity = toxicity
-    if rewrite_fp:
-        query_smiles = parse_input("./data/query_smiles")
-        full_fp = open("./data/full_fingerprint.csv", 'w')
-        count_match = 0
-        itr = 1; total_chems = len(chemical_dict.values())
-        for chemical in chemical_dict.values():
-            m = Chem.MolFromSmiles(chemical.smiles, sanitize=False)
-            for query_smile in query_smiles:
-                query_mol = Chem.MolFromSmiles(query_smile, sanitize=False)
-                b = 1 if m.HasSubstructMatch(query_mol) else 0
-                count_match += b
-                chemical.fp.append(b)
-            full_fp.write(f'"{chemical.name}",{"".join([str(elem) for elem in chemical.fp])}\n')
-            print(f"{itr}/{total_chems} processed, found {count_match}"); itr+=1
     return list(chemical_dict.values())
 
 def read_aigen_file():
@@ -612,18 +596,28 @@ class ChemicalDILIDataset(Dataset):
             tox = torch.Tensor(tox)
         return fp, tox
 
+def split_chemicals(chemical_list):
+    train_chems = []
+    test_chems = [] 
+    for c in chemical_list:
+        if c.is_train:
+            train_chems.append(c)
+        else:
+            test_chems.append(c)
+    return train_chems, test_chems
+    
 def load_DILI_data(weight=WEIGHT):
     chemicals = read_files()
-    chem_train, chem_test = train_test_split(chemicals, test_size=0.1)
+    chem_train, chem_test = split_chemicals(chemicals)
     train_set = ChemicalDILIDataset(chem_train, use_torch_tensor = True, weight = weight)
     test_set = ChemicalDILIDataset(chem_test, use_torch_tensor = True, weight = weight)
     train_loader = DataLoader(train_set, batch_size=1)
     test_loader = DataLoader(test_set)
     return train_loader, test_loader
 
-def read_data_as_np(weight = None):
+def read_data_as_np(weight=None):
     chemicals = read_files()
-    chem_train, chem_test = train_test_split(chemicals, test_size=0.2)
+    chem_train, chem_test = split_chemicals(chemicals)
     train_set = ChemicalDILIDataset(chem_train, use_torch_tensor=False, weight=weight)
     test_set = ChemicalDILIDataset(chem_test, use_torch_tensor=False, weight=weight)
     return train_set, test_set
